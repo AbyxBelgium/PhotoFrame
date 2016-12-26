@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">PhotoFrame</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="no_permission_granted">No permissions granted, PhotoFrame cannot work without
+    these permissions and no photo\'s will be displayed!</string>
+    <string name="permission_explanation">PhotoFrame needs to read images from the external storage
+    and cannot function without. Please allow the write external storage permission!</string>
+</resources>
