@@ -3,15 +3,15 @@
     <PreferenceCategory
         android:title="@string/behaviour_preference_category"
         android:key="pref_key_behaviour">
-        <Preference
+        <EditTextPreference
             android:key="pref_key_image_time"
             android:summary="@string/time_between_images_preference_summary"
             android:title="@string/time_between_images_preference_title"
             android:defaultValue="10" />
-        <Preference
+        <EditTextPreference
             android:key="pref_key_weather_time"
             android:summary="@string/weather_update_time_preference_summary"
             android:title="@string/weather_update_time_preference_title"
-            android:defaultValue="10" />
+            android:defaultValue="5" />
     </PreferenceCategory>
 </PreferenceScreen>

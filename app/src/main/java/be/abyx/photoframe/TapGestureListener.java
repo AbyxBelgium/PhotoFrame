@@ -18,7 +18,6 @@ public class TapGestureListener extends GestureDetector.SimpleOnGestureListener 
 
     @Override
     public boolean onSingleTapUp(MotionEvent e) {
-        System.out.println("TAPTAPTAP!!!");
         action.onTapped();
         return super.onSingleTapUp(e);
     }

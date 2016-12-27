@@ -100,7 +100,6 @@ public class MainActivity extends AppCompatActivity {
         TapGestureListener tapListener = new TapGestureListener(new TapGestureListener.TapListener() {
             @Override
             public void onTapped() {
-                System.out.println("DETECTED TAP!!!");
                 if (uiHidden) {
                     showSystemUI();
                 } else {
@@ -203,7 +202,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void setPictureDelay() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        PICTURE_DELAY = prefs.getInt("pref_key_image_time", 10);
+        String temp = prefs.getString("pref_key_image_time", "10");
+
+        try {
+            PICTURE_DELAY = Integer.parseInt(temp);
+        } catch (NumberFormatException e) {
+            // Fallback to default value
+            PICTURE_DELAY = 10;
+        }
 
         PICTURE_DELAY *= 1000;
 
