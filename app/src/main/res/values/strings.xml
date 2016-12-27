@@ -5,4 +5,11 @@
     these permissions and no photo\'s will be displayed!</string>
     <string name="permission_explanation">PhotoFrame needs to read images from the external storage
     and cannot function without. Please allow the write external storage permission!</string>
+    <string name="behaviour_preference_category">Behaviour</string>
+    <string name="time_between_images_preference_title">Image time</string>
+    <string name="time_between_images_preference_summary">Set the time to display one image.</string>
+    <string name="weather_update_time_preference_title">Weather update interval</string>
+    <string name="weather_update_time_preference_summary">How often should weather be updated?</string>
+    <string name="title_activity_main2">Main2Activity</string>
+    <string name="settings">Settings</string>
 </resources>

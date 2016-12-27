@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:title="@string/behaviour_preference_category"
+        android:key="pref_key_behaviour">
+        <Preference
+            android:key="pref_key_image_time"
+            android:summary="@string/time_between_images_preference_summary"
+            android:title="@string/time_between_images_preference_title"
+            android:defaultValue="10" />
+        <Preference
+            android:key="pref_key_weather_time"
+            android:summary="@string/weather_update_time_preference_summary"
+            android:title="@string/weather_update_time_preference_title"
+            android:defaultValue="10" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -4,22 +4,26 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
 import android.os.Environment;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.ActionBar;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.format.DateFormat;
 import android.util.DisplayMetrics;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
@@ -34,12 +38,9 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.Exchanger;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -53,16 +54,20 @@ public class MainActivity extends AppCompatActivity {
 
     private List<File> pictures = new ArrayList<>();
     private int currentPicture = 0;
+    private boolean uiHidden;
+    private GestureDetectorCompat gestureDetector;
 
     private static final int PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST = 1;
     private static final String MAIN_FOLDER = "PhotoFrame";
     private static final String DATA_URL = "http://weerstationbelsele.be/weerstation/Api/get-latest-data.php";
-    private static final int PICTURE_DELAY = 10000;
+    private static int PICTURE_DELAY = 10000;
     private static final int WEATHER_DELAY = 5 * 60 * 1000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setPictureDelay();
 
         setContentView(R.layout.activity_main);
 
@@ -91,18 +96,64 @@ public class MainActivity extends AppCompatActivity {
         } else {
             initializeSlideShow();
         }
+
+        TapGestureListener tapListener = new TapGestureListener(new TapGestureListener.TapListener() {
+            @Override
+            public void onTapped() {
+                System.out.println("DETECTED TAP!!!");
+                if (uiHidden) {
+                    showSystemUI();
+                } else {
+                    hideSystemUI();
+                }
+            }
+        });
+        gestureDetector = new GestureDetectorCompat(getApplicationContext(), tapListener);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        hideSystemUI();
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // We have to manually redirect MotionEvent's to the GestureDetector
+        if (gestureDetector != null) {
+            gestureDetector.onTouchEvent(event);
+        }
+        return super.onTouchEvent(event);
+    }
+
+    private void hideSystemUI() {
+        uiHidden = true;
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
                         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+
+    private void showSystemUI() {
+        uiHidden = false;
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        // Hide navigation and system bars after focus was regained (after a popup or something
+        // has appeared)
+        if (hasFocus) {
+            hideSystemUI();
+        }
     }
 
     private boolean storagePermissionGranted() {
@@ -129,6 +180,35 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             }
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_settings) {
+            Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+            startActivity(intent);
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void setPictureDelay() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        PICTURE_DELAY = prefs.getInt("pref_key_image_time", 10);
+
+        PICTURE_DELAY *= 1000;
+
+        if (PICTURE_DELAY <= 0) {
+            PICTURE_DELAY = 10;
         }
     }
 
