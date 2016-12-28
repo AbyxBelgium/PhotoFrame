@@ -13,6 +13,7 @@ import android.os.Environment;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GestureDetectorCompat;
@@ -28,6 +29,13 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.google.android.gms.awareness.Awareness;
+import com.google.android.gms.awareness.snapshot.WeatherResult;
+import com.google.android.gms.awareness.state.Weather;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 
 import org.json.JSONObject;
 
@@ -45,8 +53,10 @@ import java.util.List;
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
  * status bar and navigation/system bar) with user interaction.
+ *
+ * @author Pieter Verschaffelt
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener {
     private ImageView imageViewer;
     private TextView temperatureView;
     private TextView pressureView;
@@ -56,8 +66,10 @@ public class MainActivity extends AppCompatActivity {
     private int currentPicture = 0;
     private boolean uiHidden;
     private GestureDetectorCompat gestureDetector;
+    private GoogleApiClient googleApiClient;
 
     private static final int PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST = 1;
+    private static final int PERMISSION_ACCESS_FINE_LOCATION_REQUEST = 2;
     private static final String MAIN_FOLDER = "PhotoFrame";
     private static final String DATA_URL = "http://weerstationbelsele.be/weerstation/Api/get-latest-data.php";
     private static int PICTURE_DELAY = 10000;
@@ -108,6 +120,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         gestureDetector = new GestureDetectorCompat(getApplicationContext(), tapListener);
+
+        // TODO Fix asking user for permissions here!
+        googleApiClient = new GoogleApiClient.Builder(this)
+                .addApi(Awareness.API)
+                .enableAutoManage(this, this)
+                .build();
+        googleApiClient.connect();
     }
 
     @Override
@@ -123,6 +142,27 @@ public class MainActivity extends AppCompatActivity {
             gestureDetector.onTouchEvent(event);
         }
         return super.onTouchEvent(event);
+    }
+
+    private void detectWeather() {
+        if(!locationPermissionGranted()) {
+            return;
+        } else {
+
+        }
+
+        Awareness.SnapshotApi.getWeather(googleApiClient)
+                .setResultCallback(new ResultCallback<WeatherResult>() {
+                    @Override
+                    public void onResult(@NonNull WeatherResult weatherResult) {
+                        Weather weather = weatherResult.getWeather();
+                        // Atmospheric pressure is not supported by Google Awareness API
+                        WeatherData data = new WeatherData(weather.getTemperature(Weather.CELSIUS), weather.getHumidity(), 0);
+
+                        temperatureView.setText(String.format("%.1f", data.getTemperature()) + "°C");
+                        pressureView.setText(data.getAirPressure() + " hPa");
+                    }
+                });
     }
 
     private void hideSystemUI() {
@@ -159,6 +199,18 @@ public class MainActivity extends AppCompatActivity {
         return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
 
+    private boolean locationPermissionGranted() {
+        return ContextCompat.checkSelfPermission( this, Manifest.permission.ACCESS_FINE_LOCATION )
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestLocationPermission() {
+        ActivityCompat.requestPermissions(
+                MainActivity.this,
+                new String[]{ Manifest.permission.ACCESS_FINE_LOCATION },
+                PERMISSION_ACCESS_FINE_LOCATION_REQUEST);
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
@@ -178,6 +230,16 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
                 break;
+            }
+            case PERMISSION_ACCESS_FINE_LOCATION_REQUEST: {
+                if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                    showOKDialog(getString(R.string.no_location_permission_granted), new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            // Do nothing...
+                        }
+                    });
+                }
             }
         }
     }
@@ -366,5 +428,11 @@ public class MainActivity extends AppCompatActivity {
         };
 
         backgroundHandler.post(weatherDownloader);
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        // TODO show a proper error message here
+        System.out.println("Connection to Google Play Services failed!");
     }
 }
