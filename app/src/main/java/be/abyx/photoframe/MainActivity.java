@@ -29,6 +29,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.awareness.Awareness;
 import com.google.android.gms.awareness.snapshot.WeatherResult;
@@ -88,27 +89,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
         this.pressureView = (TextView) findViewById(R.id.pressureView);
         this.clockView = (TextView) findViewById(R.id.clockView);
 
-        // Check for permissions
-        if (!storagePermissionGranted()) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                // We should explain why this permission is necessary!
-                showOKDialog(getString(R.string.permission_explanation), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        // Ask for permission to read and write from the external storage
-                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_CONTACTS},
-                                PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST);
-                    }
-                });
-            } else {
-                // Ask for permission to read and write from the external storage
-                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_CONTACTS},
-                        PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST);
-            }
-        } else {
-            initializeSlideShow();
-        }
-
         TapGestureListener tapListener = new TapGestureListener(new TapGestureListener.TapListener() {
             @Override
             public void onTapped() {
@@ -121,12 +101,48 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
         });
         gestureDetector = new GestureDetectorCompat(getApplicationContext(), tapListener);
 
-        // TODO Fix asking user for permissions here!
-        googleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Awareness.API)
-                .enableAutoManage(this, this)
-                .build();
-        googleApiClient.connect();
+        if (!locationPermissionGranted()) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                showOKDialog(getString(R.string.no_location_permission_explanation), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Ask for permission to get location information
+                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                                PERMISSION_ACCESS_FINE_LOCATION_REQUEST);
+                    }
+                });
+            } else {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        PERMISSION_ACCESS_FINE_LOCATION_REQUEST);
+            }
+        } else {
+            googleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(Awareness.API)
+                    .enableAutoManage(this, this)
+                    .build();
+            googleApiClient.connect();
+        }
+
+        // Check for permissions
+        if (!storagePermissionGranted()) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                // We should explain why this permission is necessary!
+                showOKDialog(getString(R.string.permission_explanation), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        // Ask for permission to read and write from the external storage
+                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST);
+                    }
+                });
+            } else {
+                // Ask for permission to read and write from the external storage
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST);
+            }
+        } else {
+            initializeSlideShow();
+        }
     }
 
     @Override
@@ -145,24 +161,26 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
     }
 
     private void detectWeather() {
-        if(!locationPermissionGranted()) {
-            return;
-        } else {
+        try {
+            Awareness.SnapshotApi.getWeather(googleApiClient)
+                    .setResultCallback(new ResultCallback<WeatherResult>() {
+                        @Override
+                        public void onResult(@NonNull WeatherResult weatherResult) {
+                            if (weatherResult.getStatus().isSuccess()) {
+                                Weather weather = weatherResult.getWeather();
+                                // Atmospheric pressure is not supported by Google Awareness API
+                                WeatherData data = new WeatherData(weather.getTemperature(Weather.CELSIUS), weather.getHumidity(), 0);
 
+                                temperatureView.setText(String.format("%.1f", data.getTemperature()) + " °C");
+                                pressureView.setText(data.getHumidity() + " %");
+                            } else {
+                                showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_SHORT);
+                            }
+                        }
+                    });
+        } catch (SecurityException e) {
+            showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_SHORT);
         }
-
-        Awareness.SnapshotApi.getWeather(googleApiClient)
-                .setResultCallback(new ResultCallback<WeatherResult>() {
-                    @Override
-                    public void onResult(@NonNull WeatherResult weatherResult) {
-                        Weather weather = weatherResult.getWeather();
-                        // Atmospheric pressure is not supported by Google Awareness API
-                        WeatherData data = new WeatherData(weather.getTemperature(Weather.CELSIUS), weather.getHumidity(), 0);
-
-                        temperatureView.setText(String.format("%.1f", data.getTemperature()) + "°C");
-                        pressureView.setText(data.getAirPressure() + " hPa");
-                    }
-                });
     }
 
     private void hideSystemUI() {
@@ -204,13 +222,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void requestLocationPermission() {
-        ActivityCompat.requestPermissions(
-                MainActivity.this,
-                new String[]{ Manifest.permission.ACCESS_FINE_LOCATION },
-                PERMISSION_ACCESS_FINE_LOCATION_REQUEST);
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
@@ -232,7 +243,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                 break;
             }
             case PERMISSION_ACCESS_FINE_LOCATION_REQUEST: {
-                if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    googleApiClient = new GoogleApiClient.Builder(this)
+                            .addApi(Awareness.API)
+                            .enableAutoManage(this, this)
+                            .build();
+                    googleApiClient.connect();
+                } else {
                     showOKDialog(getString(R.string.no_location_permission_granted), new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
@@ -286,6 +303,12 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                 .setPositiveButton("OK", onClickListener);
         Dialog dialog = builder.create();
         dialog.show();
+    }
+
+    private void showToast(String message, int length) {
+        Toast toast = new Toast(getApplicationContext());
+        toast.setDuration(length);
+        toast.show();
     }
 
     private void loadPictures() {
@@ -392,37 +415,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
         final Runnable weatherDownloader = new Runnable() {
             @Override
             public void run() {
-                try {
-                    URL url = new URL(DATA_URL);
-                    URLConnection urlConnection = url.openConnection();
-                    urlConnection.setConnectTimeout(1000);
-                    InputStream stream = urlConnection.getInputStream();
-                    BufferedReader streamReader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-                    StringBuilder responseStrBuilder = new StringBuilder();
-                    String inputStr;
-                    while ((inputStr = streamReader.readLine()) != null)
-                        responseStrBuilder.append(inputStr);
-                    JSONObject data = new JSONObject(responseStrBuilder.toString());
-                    stream.close();
-
-                    float temp = UnitConverter.convertFahrenheitToCelsius((float) data.getDouble("outTemp"));
-                    int outHumidity = data.getInt("outHumidity");
-                    long airPressure = UnitConverter.convertInchHGToHpa((float) data.getDouble("barometer"));
-
-                    final WeatherData downloaded = new WeatherData(temp, outHumidity, airPressure);
-
-                    // Updates to View-elements should happen on UI-thread!
-                    uiHandler.post(new Runnable() {
-                        @SuppressLint({"DefaultLocale", "SetTextI18n"})
-                        @Override
-                        public void run() {
-                            temperatureView.setText(String.format("%.1f", downloaded.getTemperature()) + "°C");
-                            pressureView.setText(downloaded.getAirPressure() + " hPa");
-                        }
-                    });
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
+                detectWeather();
                 backgroundHandler.postDelayed(this, WEATHER_DELAY);
             }
         };
