@@ -3,12 +3,14 @@ package be.abyx.photoframe;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.LocationManager;
 import android.os.Environment;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -101,6 +103,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
         });
         gestureDetector = new GestureDetectorCompat(getApplicationContext(), tapListener);
 
+        // Check if location services are enabled
+        LocationManager locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                && !locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+
+            // Inform the user that location services are disabled and ask him to enable these
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle(R.string.location_services_disabled_title);
+            builder.setMessage(R.string.location_services_disabled_message);
+            builder.setPositiveButton(R.string.yes_button, new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                }
+            });
+            builder.setNegativeButton(R.string.no_button, null);
+            builder.create().show();
+            return;
+        }
+
         if (!locationPermissionGranted()) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)) {
                 showOKDialog(getString(R.string.no_location_permission_explanation), new DialogInterface.OnClickListener() {
@@ -174,12 +195,12 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                                 temperatureView.setText(String.format("%.1f", data.getTemperature()) + " °C");
                                 pressureView.setText(data.getHumidity() + " %");
                             } else {
-                                showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_SHORT);
+                                showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_LONG);
                             }
                         }
                     });
         } catch (SecurityException e) {
-            showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_SHORT);
+            showToast(getString(R.string.acquiring_weather_failed), Toast.LENGTH_LONG);
         }
     }
 
