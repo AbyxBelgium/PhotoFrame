@@ -306,8 +306,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
     }
 
     private void showToast(String message, int length) {
-        Toast toast = new Toast(getApplicationContext());
-        toast.setDuration(length);
+        Toast toast = Toast.makeText(getApplicationContext(), message, length);
         toast.show();
     }
 
